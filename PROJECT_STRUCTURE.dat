@@ -1,0 +1,300 @@
+PROJECT STRUCTURE AND ARCHITECTURE MAP
+======================================
+
+Project: Transient_Diffusion1D_FDM_Solvers_Cpp
+Domain: One-dimensional transient diffusion equation solved with finite-difference methods.
+Language: C++20.
+Build system: CMake 3.20 or newer.
+Primary include convention: project-root-relative paths, for example
+  #include "Core/Field/Field.hpp"
+
+PURPOSE OF THIS FILE
+--------------------
+This file is an AI-oriented architecture map. It describes the current source tree,
+module responsibilities, target dependencies, data flow, numerical schemes, and important
+implementation contracts. It intentionally does not rely on README files.
+
+Notation:
+- .hpp files declare interfaces, data structures, inline utilities, and header-only code.
+- .cpp files contain out-of-line implementations and are compiled by CMake.
+- [entry point] identifies a translation unit containing main().
+- Generated build directories, binaries, plots, and large result snapshots are summarized.
+- The project root is the include directory for every CMake target.
+
+CURRENT SOURCE TREE
+-------------------
+.
+|-- CMakeLists.txt                                  # CMake targets, libraries, dependencies, flags
+|-- PROJECT_STRUCTURE.dat                           # This architecture map
+|-- .clangd                                         # Clangd configuration
+|-- .gitignore                                      # Git ignore rules
+|-- .vscode/
+|   |-- launch.json                                 # VS Code launch configurations
+|   |-- settings.json                               # VS Code workspace settings
+|   `-- tasks.json                                  # Configure, build, clean, and inspection tasks
+|-- Config/
+|   `-- SolverInputs.hpp                            # Central compile-time simulation inputs
+|-- Core/
+|   |-- Boundary/
+|   |   |-- Boundary.hpp                            # Boundary value/type/location/orientation class
+|   |   |-- Boundary.cpp                            # Boundary constructor
+|   |   `-- BoundaryManager/BoundaryManager.hpp     # BoundaryType, BoundaryLocation, Orientation enums
+|   |-- Field/
+|   |   |-- Field.hpp                                # Nodal scalar field and field operations
+|   |   |-- Field.cpp                                # Field construction/profile/printing implementation
+|   |   `-- FieldName/FieldName.hpp                   # Field identifiers used by output naming
+|   |-- Geometry/
+|   |   |-- Geometry.hpp                             # One-dimensional domain length
+|   |   |-- Geometry.cpp                             # Geometry constructor and validation
+|   |   `-- assets/Channel_Geometry.png              # Geometry illustration
+|   `-- Mesh/
+|       |-- Mesh.hpp                                 # Uniform one-dimensional mesh interface
+|       |-- Mesh.cpp                                 # Grid generation and mesh implementation
+|       `-- assets/computational_grid.png            # Mesh illustration
+|-- Discretization/
+|   |-- SolverScheme/SolverScheme.hpp                # FTCS, DuFort-Frankel, Laasonen, Crank-Nicolson enum
+|   |-- Explicit/
+|   |   |-- FTCS/
+|   |   |   |-- FTCS.hpp                             # FTCS time-step interface
+|   |   |   |-- FTCS.cpp                             # FTCS update implementation
+|   |   |   `-- FTCS_Stability.hpp                    # Header-only FTCS stability check and dt adjustment
+|   |   `-- DuFortFrankel/
+|   |       |-- DuFortFrankel.hpp                     # DuFort-Frankel interface and coefficient helper
+|   |       `-- DuFortFrankel.cpp                     # DuFort-Frankel update implementation
+|   `-- Implicit/
+|       |-- Boundary/
+|       |   |-- EnforceBoundary.hpp                  # Boundary enforcement declarations
+|       |   `-- EnforceBoundary.cpp                  # Dense/tridiagonal/RHS boundary enforcement
+|       |-- CrankNicolson/
+|       |   |-- CrankNicolsonAssembler.hpp           # Matrix/RHS assembly declarations
+|       |   `-- CrankNicolsonAssembler.cpp           # Crank-Nicolson assembly implementation
+|       `-- Laasonen/
+|           |-- LaasonenAssembler.hpp                # Fully implicit assembly declarations
+|           `-- LaasonenAssembler.cpp                # Laasonen assembly implementation
+|-- LinearSolvers/
+|   |-- Matrix/
+|   |   |-- CoefficientMatrix/
+|   |   |   |-- CoefficientMatrix.hpp                # Dense square coefficient matrix interface
+|   |   |   `-- CoefficientMatrix.cpp                # Dense matrix constructor
+|   |   |-- RHS/
+|   |   |   |-- RHS.hpp                              # Right-hand-side vector interface
+|   |   |   `-- RHS.cpp                              # RHS constructor
+|   |   `-- TridiagonalMatrix/
+|   |       |-- TridiagonalMatrix.hpp                # Lower/main/upper diagonal matrix interface
+|   |       `-- TridiagonalMatrix.cpp                # Tridiagonal matrix constructor
+|   |-- GaussianElimination/
+|   |   |-- GaussianElimination.hpp                  # Stateless Gaussian elimination API
+|   |   `-- GaussianElimination.cpp                  # Partial-pivoting implementation
+|   `-- ThomasAlgorithm/
+|       |-- ThomasAlgorithm.hpp                      # Stateless Thomas algorithm API
+|       `-- ThomasAlgorithm.cpp                      # Tridiagonal solve implementation
+|-- IO/
+|   |-- OutputWriter/
+|   |   |-- FileWriter/
+|   |   |   |-- FileWriter.hpp                        # Field output API
+|   |   |   `-- FileWriter.cpp                        # .dat field writer
+|   |   |-- FileName/FileName.hpp                     # Field/time/label-based file names
+|   |   |-- Label/Label.hpp                           # Output label enum/string conversion
+|   |   `-- Legend/Legend.hpp                         # Plot legend generators
+|   |-- PathManager/
+|   |   |-- PathManager/PathManager.hpp               # Results path construction
+|   |   `-- PathType/PathType.hpp                     # Initial/Numerical/Analytical categories
+|   `-- Visualization/
+|       `-- gnuplot/
+|           |-- LivePointPlotter/
+|           |   |-- LivePointPlotter.hpp              # Live convergence plot API
+|           |   `-- LivePointPlotter.cpp              # Live gnuplot process/data handling
+|           `-- LinePlot/
+|               |-- LinePlot.hpp                      # Saved line-plot API and line styles
+|               `-- LinePlot.cpp                      # Gnuplot line rendering implementation
+|-- Utilities/
+|   |-- Convergence/RelativeFieldChange/
+|   |   |-- FieldChange.hpp                           # Relative field-change API
+|   |   |-- FieldChange.cpp                           # Relative change implementation
+|   |   `-- TimeScale/TimeScale.hpp                    # Characteristic diffusion time helper
+|   |-- KeyboardHandler/KeyboardHandler.hpp           # Escape-key polling helper
+|   |-- Parameter/Parameter.hpp                       # Typed mutable parameter wrapper
+|   `-- StatusPrinter/StatusPrinter.hpp               # Iteration/status output helper
+|-- Verification/
+|   `-- AnalyticalSolution/
+|       |-- AnalyticalSolution.hpp                    # Analytical solution function declarations
+|       `-- AnalyticalSolution.cpp                    # Series-based transient/reference solution
+|-- SimulationSetup/
+|   |-- SimulationParams/
+|   |   |-- SimulationParams.hpp                      # Simulation parameter members
+|   |   `-- SimulationParams.cpp                      # Parameter construction from mesh/config
+|   |-- SimulationBoundaries/
+|   |   |-- SimulationBoundaries.hpp                  # Top/bottom simulation boundary members
+|   |   `-- SimulationBoundaries.cpp                  # Configured boundary construction
+|   |-- SimulationContext/
+|   |   |-- SimulationContext.hpp                     # Shared simulation state and lifecycle API
+|   |   `-- SimulationContext.cpp                     # Startup, stepping, output, convergence flow
+|   `-- PostProcessing/PlotDashboard/Plot/
+|       |-- Plot.hpp                                  # Aggregates live and saved plotter objects
+|       `-- Plot.cpp                                  # Plot dashboard constructor
+|-- main/
+|   |-- Explicit_FTCS.cpp                             # [entry point] FTCS executable
+|   |-- Explicit_DUFORT_FRANKEL.cpp                   # [entry point] DuFort-Frankel executable
+|   |-- Implicit_Laasonen.cpp                         # [entry point] Laasonen executable
+|   `-- Implicit_CrankNicolson.cpp                    # [entry point] Crank-Nicolson executable
+`-- Results/                                         # Runtime field output, summarized
+    |-- Initial_Field/                                # Initial field data
+    |-- Numerical_Field/
+    |   |-- FTCS/                                    # FTCS data files
+    |   |-- DUFORT_FRANKEL/                          # DuFort-Frankel data files
+    |   |-- Laasonen/                                # Laasonen data files
+    |   `-- CrankNicolson/                            # Crank-Nicolson data files
+    `-- Analytical_Field/                             # Analytical/reference data files
+
+CONFIGURED NUMERICAL MODEL
+--------------------------
+The current values in Config/SolverInputs.hpp define:
+- Domain length: SolverInputs::Geometry::Length.
+- Diffusivity/kinematic viscosity: SolverInputs::Physics::nu.
+- Uniform mesh node count: SolverInputs::Mesh::N.
+- Number of time levels, requested dt, and convergence tolerance:
+  SolverInputs::Solver::NumTimeLevels, dt, and Tolerance.
+- Initial profile: SolverInputs::InitialCondition::Profile.
+- Fixed top and bottom values: SolverInputs::BoundaryCondition::TopWallValue and BottomWallValue.
+
+Geometry validates positive length. Mesh uses N nodes and computes the spacing as
+Delta = Length / (N - 1). Field objects are sized from the mesh and store nodal scalar
+values. In this one-dimensional project, Boundary orientation is represented by the
+Horizontal/Vertical enum and location identifies Left/Right/Bottom/Top; the active
+simulation setup creates vertical top and bottom Dirichlet boundaries.
+
+ARCHITECTURAL RESPONSIBILITIES
+------------------------------
+1. Config
+   Owns centralized physical, mesh, initial-condition, boundary, and solver inputs.
+
+2. Core
+   Provides domain geometry, uniform mesh coordinates, boundary metadata, and nodal fields.
+   Core is the foundation used by discretization, setup, verification, IO, and solvers.
+
+3. SimulationSetup
+   Builds the shared simulation state. SimulationContext owns Geometry, Mesh,
+   SimulationParams, SimulationBoundaries, Plot, and the working fields U_0, U_1,
+   U_nMinus1, U_n, U_nPlus1, U_SteadyState, and U_Analytical_n.
+
+4. Discretization
+   Contains time-marching schemes. Explicit schemes update fields directly. Implicit
+   schemes assemble dense or tridiagonal systems and use boundary enforcement before solving.
+   FTCS stability requires diffusion number <= 0.5; FTCS_Stability.hpp can reduce dt and
+   update the diffusion number when the requested value is unstable.
+
+5. LinearSolvers
+   Provides matrix/vector storage plus Gaussian elimination and Thomas algorithm solvers.
+   Gaussian elimination consumes CoefficientMatrix and RHS. ThomasAlgorithm consumes
+   TridiagonalMatrix and RHS. Matrix constructors are out-of-line in their own .cpp files.
+
+6. Utilities
+   Supplies reusable parameter, convergence, time-scale, status, and keyboard helpers.
+
+7. Verification
+   Computes analytical steady/transient diffusion fields for comparison against numerical
+   fields. AnalyticalSolution functions write into an existing Field object.
+
+8. IO
+   Writes field data under Results/, builds output names and paths, and provides gnuplot
+   plotting through LinePlot and LivePointPlotter.
+
+9. main
+   Each executable selects one SolverScheme, creates SimulationContext, performs any
+   scheme-specific setup, advances time levels, calls common post-processing, and exits.
+
+SIMULATION DATA FLOW
+--------------------
+SolverInputs -> Geometry -> Mesh -> SimulationParams and Field objects
+             -> SimulationBoundaries and Plot dashboard
+             -> selected discretization scheme
+             -> optional matrix/RHS assembly and LinearSolvers
+             -> boundary application and relative-field-change calculation
+             -> SimulationContext output/plotting and analytical comparison
+             -> Results/Initial_Field, Results/Numerical_Field, Results/Analytical_Field
+
+FIELD STATE CONVENTION
+----------------------
+- U_0 is the initial field.
+- For one-step schemes, StartUp moves the initial state into U_n.
+- U_nPlus1 is the newly computed field before common post-processing swaps it into U_n.
+- DuFort-Frankel additionally uses U_nMinus1 and its two-level update.
+- SimulationContext applies configured boundary values, computes relative field change,
+  updates fields, writes periodic output, updates plots, and checks steady-state tolerance.
+
+CMAKE TARGET ARCHITECTURE
+-------------------------
+CMake uses C++20, project-root include directories, -Wall -Wextra -O3 on GCC/Clang,
+and enables IPO/LTO only when check_ipo_supported() succeeds. Runtime executables are
+written to ${CMAKE_SOURCE_DIR}/bin and compile_commands.json is exported.
+
+Static libraries:
+- cfd_core
+  Sources: Core/Boundary, Core/Geometry, Core/Mesh, Core/Field implementations.
+
+- cfd_explicit
+  Sources: FTCS.cpp and DuFortFrankel.cpp.
+  Public dependency: cfd_core.
+
+- cfd_linear_solvers
+  Sources: GaussianElimination.cpp, ThomasAlgorithm.cpp, and the three matrix .cpp files.
+  Public dependency: cfd_core.
+
+- cfd_implicit
+  Sources: EnforceBoundary.cpp, CrankNicolsonAssembler.cpp, LaasonenAssembler.cpp.
+  Public dependencies: cfd_core and cfd_linear_solvers.
+
+- cfd_io
+  Sources: FileWriter.cpp, LivePointPlotter.cpp, LinePlot.cpp.
+  Public dependency: cfd_core.
+
+- cfd_utilities
+  Source: FieldChange.cpp.
+  Public dependency: cfd_core.
+
+- cfd_verification
+  Source: AnalyticalSolution.cpp.
+  Public dependency: cfd_core.
+
+- cfd_simulation_setup
+  Sources: Plot.cpp, SimulationBoundaries.cpp, SimulationContext.cpp, SimulationParams.cpp.
+  Public dependencies: cfd_core, cfd_io, cfd_utilities, cfd_verification.
+
+- cfd_all_libraries
+  Aggregate custom target depending on every static library above. It builds libraries only,
+  without requesting the executable targets.
+
+Executable targets:
+- Explicit_FTCS -> cfd_explicit, cfd_simulation_setup
+- Explicit_DUFORT_FRANKEL -> cfd_explicit, cfd_simulation_setup
+- Implicit_Laasonen -> cfd_implicit, cfd_linear_solvers, cfd_simulation_setup
+- Implicit_CrankNicolson -> cfd_implicit, cfd_linear_solvers, cfd_simulation_setup
+
+BUILD COMMANDS
+--------------
+Configure:
+  cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+
+Build all configured targets:
+  cmake --build build --parallel
+
+Build libraries only:
+  cmake --build build --target cfd_all_libraries --parallel
+
+Build one executable:
+  cmake --build build --target Explicit_FTCS
+  cmake --build build --target Explicit_DUFORT_FRANKEL
+  cmake --build build --target Implicit_Laasonen
+  cmake --build build --target Implicit_CrankNicolson
+
+IMPORTANT MAINTENANCE RULES FOR AN AI AGENT
+-------------------------------------------
+- Treat CMakeLists.txt as the authoritative source list and target dependency map.
+- Do not reintroduce old paths such as LinearSolvers/Matrix/RHS.hpp; matrix headers now
+  live in their own directories: Matrix/RHS/RHS.hpp, Matrix/CoefficientMatrix/CoefficientMatrix.hpp,
+  and Matrix/TridiagonalMatrix/TridiagonalMatrix.hpp.
+- The line-plot class is LinePlot and its current files are under IO/Visualization/gnuplot/LinePlot/.
+- The plot dashboard is under SimulationSetup/PostProcessing/PlotDashboard/Plot/.
+- Keep header-only utilities out of CMake source lists unless they are intentionally compiled.
+- Preserve the distinction between generated Results data and source code.
+- Before editing, inspect git status and preserve unrelated user changes.

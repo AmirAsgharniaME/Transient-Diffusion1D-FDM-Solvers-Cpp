@@ -18,18 +18,18 @@ A C++20 application for solving the one-dimensional transient diffusion equation
 
 The application solves the one-dimensional diffusion equation
 
-\[
+$$
 \frac{\partial u}{\partial t} = \nu \frac{\partial^2 u}{\partial y^2},
 \qquad 0 \le y \le L,
-\]
+$$
 
-where \(u\) is a scalar field, \(\nu\) is the diffusion coefficient, \(L\) is the domain length, and \(t\) is time. The current simulation setup uses a uniform mesh and fixed-value (Dirichlet) conditions at the two ends of the domain.
+where $u$ is a scalar field, $\nu$ is the diffusion coefficient, $L$ is the domain length, and $t$ is time. The current simulation setup uses a uniform mesh and fixed-value (Dirichlet) conditions at the two ends of the domain.
 
-For \(N\) mesh nodes, the spacing is \(\Delta y = L/(N-1)\). The diffusion number used by the schemes is
+For $N$ mesh nodes, the spacing is $\Delta y = L/(N-1)$. The diffusion number used by the schemes is
 
-\[
+$$
 r = \frac{\nu\,\Delta t}{(\Delta y)^2}.
-\]
+$$
 
 ## Numerical methods
 

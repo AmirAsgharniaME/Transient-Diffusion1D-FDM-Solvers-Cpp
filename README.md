@@ -1,6 +1,11 @@
 # Transient 1D Diffusion FDM Solvers
 
-A C++20 application for solving the one-dimensional transient diffusion equation with four finite-difference schemes. The project includes shared simulation setup, explicit and implicit discretizations, direct linear solvers, analytical reference fields, field-file output, and gnuplot visualization.
+[![C++20](https://img.shields.io/badge/C%2B%2B-20-blue.svg)](https://en.cppreference.com/w/cpp/20)
+[![CMake](https://img.shields.io/badge/CMake-3.20%2B-064F8C.svg?logo=cmake&logoColor=white)](https://cmake.org/)
+![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
+![Build Status](https://img.shields.io/badge/Build-CMake%20supported-blue.svg)
+
+A self-contained, modular C++20 repository for solving the one-dimensional transient diffusion equation with four finite-difference schemes. Its internal libraries provide geometry and mesh data, boundary and scalar-field handling, numerical discretizations, linear solvers, simulation setup, file output, and Gnuplot visualization.
 
 ## Contents
 
@@ -16,39 +21,36 @@ A C++20 application for solving the one-dimensional transient diffusion equation
 
 ## Model
 
-The application solves the one-dimensional diffusion equation
+The application solves the 1D transient diffusion equation
 
 $$
-\frac{\partial u}{\partial t} = \nu \frac{\partial^2 u}{\partial y^2},
-\qquad 0 \le y \le L,
+\frac{\partial u}{\partial t} = \nu \frac{\partial^2 u}{\partial y^2}, \quad 0 \le y \le L
 $$
 
-where $u$ is a scalar field, $\nu$ is the diffusion coefficient, $L$ is the domain length, and $t$ is time. The current simulation setup uses a uniform mesh and fixed-value (Dirichlet) conditions at the two ends of the domain.
-
-For $N$ mesh nodes, the spacing is $\Delta y = L/(N-1)$. The diffusion number used by the schemes is
+where $u$ is a scalar field, $\nu$ is the diffusion coefficient, $L$ is the domain length, and $t$ is time. The simulation uses a uniform mesh and fixed-value (Dirichlet) conditions at the domain endpoints. For $N$ mesh nodes, the spacing and diffusion number are
 
 $$
-r = \frac{\nu\,\Delta t}{(\Delta y)^2}.
+\Delta y = \frac{L}{N-1}, \qquad r = \frac{\nu\,\Delta t}{(\Delta y)^2}.
 $$
 
 ## Numerical methods
 
-| Executable | Scheme | Description |
+| Solver executable | Method | Description |
 |---|---|---|
-| `Explicit_FTCS` | FTCS | Forward-time, centered-space explicit update. The program reduces `dt` when needed to satisfy the FTCS diffusion-number stability limit. |
-| `Explicit_DUFORT_FRANKEL` | DuFort–Frankel | Explicit three-time-level update. Its first level is initialized with FTCS; if the configured diffusion number is too large, that startup is substepped using a stable FTCS step. |
-| `Implicit_Laasonen` | Laasonen (backward Euler) | Fully implicit system solved with the Thomas tridiagonal algorithm. |
-| `Implicit_CrankNicolson` | Crank–Nicolson | Trapezoidal time discretization solved with the Thomas tridiagonal algorithm. |
+| `Explicit_FTCS` | FTCS | Forward-time, centered-space explicit update. The solver reduces the time step when needed to satisfy the FTCS diffusion-number stability limit. |
+| `Explicit_DUFORT_FRANKEL` | DuFort–Frankel | Explicit three-time-level update. Its first level is initialized with FTCS; startup is substepped when needed to satisfy the FTCS stability limit. |
+| `Implicit_Laasonen` | Laasonen (backward Euler) | Fully implicit update solved with the Thomas TDMA algorithm. |
+| `Implicit_CrankNicolson` | Crank–Nicolson | Trapezoidal time discretization solved with the Thomas TDMA algorithm. |
 
-The Thomas algorithm is used by the implicit executables. Gaussian elimination with partial pivoting is also available in `LinearSolvers/` as a general dense solver.
+The repository also includes Gaussian elimination with partial pivoting for general dense linear systems.
 
 ## Requirements
 
 - CMake 3.20 or newer
 - A C++20 compiler supported by CMake (GCC, Clang, AppleClang, or MSVC)
-- gnuplot available on `PATH` for the live convergence and field comparison plots
+- Gnuplot on `PATH` for live plotting
 
-CMake enables warning and optimization flags for supported compilers and enables interprocedural optimization when the compiler supports it. No external C++ package dependencies are declared.
+The project declares no external C++ package dependencies.
 
 ## Build
 
@@ -68,7 +70,7 @@ bin/Implicit_Laasonen
 bin/Implicit_CrankNicolson
 ```
 
-To build just one solver, configure the project as above and use its CMake target name:
+To build an individual solver, use its CMake target name:
 
 ```sh
 cmake --build build --target Explicit_FTCS
@@ -77,11 +79,15 @@ cmake --build build --target Implicit_Laasonen
 cmake --build build --target Implicit_CrankNicolson
 ```
 
-To build only the static libraries, use `cmake --build build --target cfd_all_libraries`.
+To build only the internal static libraries:
+
+```sh
+cmake --build build --target cfd_all_libraries
+```
 
 ## Run
 
-Launch an executable from the repository root. The application uses relative paths for its results directory, so running it from the repository root keeps outputs under the project’s `Results/` directory.
+Launch an executable from the repository root so relative output paths resolve to `Results/`:
 
 ```sh
 ./bin/Explicit_FTCS
@@ -90,60 +96,91 @@ Launch an executable from the repository root. The application uses relative pat
 ./bin/Implicit_CrankNicolson
 ```
 
-Each executable constructs the shared simulation context, selects its scheme, advances up to the configured number of time levels, applies the boundary values, tracks relative field change, and stops when the configured steady-state tolerance is reached or the time-level limit is reached. The explicit executables also poll for the Escape key. The programs may wait for a final Enter key after completing.
+Each executable creates the shared simulation context, selects its scheme, advances the solution, applies boundary values, and tracks relative field change. The run stops when the configured steady-state tolerance or maximum number of time levels is reached. The explicit solvers also poll for the Escape key, and the programs may wait for Enter before exiting.
 
 ## Configure a simulation
 
-Default inputs are centralized in [`Config/SolverInputs.hpp`](Config/SolverInputs.hpp). Edit these compile-time values and rebuild to change the simulation:
+Default compile-time inputs are defined in [`Config/SolverInputs.hpp`](Config/SolverInputs.hpp). Edit these values and rebuild to change the simulation.
 
-| Setting | Current default | Meaning |
+| Input | Default | Meaning |
 |---|---:|---|
-| `Geometry::Length` | `0.04` | Domain length |
+| `Geometry::Length` | `0.04` | Domain length, in meters |
 | `Physics::nu` | `0.00217` | Diffusion coefficient |
 | `Mesh::N` | `40` | Number of uniform mesh nodes |
 | `Solver::NumTimeLevels` | `20000` | Maximum number of time levels |
 | `Solver::dt` | `0.0001` | Requested time step |
 | `Solver::Tolerance` | `1e-6` | Relative field-change threshold for steady-state stopping |
-| `InitialCondition::Profile` | all zeros | Initial nodal field values |
+| `InitialCondition::Profile` | `N` zeros | Initial value at each mesh node |
 | `BoundaryCondition::TopWallValue` | `0.0` | Value at the top endpoint |
 | `BoundaryCondition::BottomWallValue` | `40.0` | Value at the bottom endpoint |
 
-These settings are C++ constants, not values loaded from a runtime configuration file. The mesh contains `N` nodes and computes its spacing as `Length / (N - 1)`.
+These are C++ constants, not runtime configuration values. The mesh spacing is calculated as $\Delta y = \frac{L}{N-1}$.
 
 ## Results and visualization
 
-The field writer creates the output directories as needed and writes whitespace-delimited `.dat` files. Each file has two columns: mesh coordinate and field value. Outputs are organized as follows:
+The field writer creates the output directories as needed and writes whitespace-delimited `.dat` files with mesh coordinate and field value columns. Results are organized as follows:
 
 ```text
 Results/
-├── Initial_Field/       # Initial field
+├── Initial_Field/                  # Initial field
 ├── Numerical_Field/
-│   ├── FTCS/
-│   ├── DUFORT_FRANKEL/
-│   ├── Laasonen/
-│   └── CrankNicolson/
-└── Analytical_Field/    # Analytical steady-state and final-time fields
+│   ├── FTCS/                       # FTCS results
+│   ├── DUFORT_FRANKEL/              # DuFort–Frankel results
+│   ├── Laasonen/                   # Laasonen results
+│   └── CrankNicolson/               # Crank–Nicolson results
+└── Analytical_Field/               # Analytical steady-state and final-time fields
 ```
 
-The simulation writes the initial field and steady-state analytical reference on startup, periodic numerical fields during the run, and final numerical and analytical fields when the steady-state tolerance is met. `SimulationSetup` and `IO/Visualization/gnuplot/` provide live convergence plotting and field comparison plots; install gnuplot and ensure it can be found on `PATH` to use them. Generated `.dat` files under `Results/` are ignored by Git.
+The simulation writes the initial field and analytical reference on startup, periodic numerical fields during execution, and final numerical and analytical fields at completion. The internal plotting dashboard and Gnuplot integration provide live convergence and field-comparison plots. Install Gnuplot and ensure it is available on `PATH` to use those plots. Generated result files are ignored by Git.
 
 ## Project layout
 
 ```text
-Config/             Compile-time inputs and shared enums
-Core/               Geometry, mesh, boundaries, and scalar fields
-Discretization/     Explicit and implicit schemes and boundary enforcement
-LinearSolvers/      Dense/tridiagonal matrix data and direct solvers
-SimulationSetup/    Parameters, boundaries, simulation context, and plot dashboard
-IO/                 Field output, path/name helpers, and gnuplot integration
-Utilities/          Relative-change, time-scale, status, and keyboard utilities
-Verification/       Analytical diffusion solution
-main/               One entry point for each solver executable
-Results/            Runtime field output
+.
+├── Config/                         # Compile-time solver inputs and configuration notes
+├── Core/
+│   ├── Geometry/                   # Physical domain geometry
+│   ├── Mesh/                       # One-dimensional uniform mesh
+│   ├── Boundary/                   # Boundary values and boundary management
+│   └── Field/                      # Scalar fields and field names
+├── Discretization/
+│   ├── Explicit/FTCS/               # FTCS update and stability handling
+│   ├── Explicit/DuFortFrankel/      # DuFort–Frankel update
+│   ├── Implicit/Laasonen/           # Laasonen system assembly
+│   ├── Implicit/CrankNicolson/      # Crank–Nicolson system assembly
+│   ├── Implicit/Boundary/           # Implicit boundary enforcement
+│   └── SolverScheme/               # Shared solver scheme definitions
+├── LinearSolvers/
+│   ├── ThomasAlgorithm/             # Thomas tridiagonal matrix algorithm (TDMA)
+│   ├── GaussianElimination/         # Dense Gaussian elimination with partial pivoting
+│   └── Matrix/                      # Coefficient matrices and right-hand sides
+├── SimulationSetup/
+│   ├── SimulationParams/            # Simulation parameter setup
+│   ├── SimulationBoundaries/        # Boundary setup for the simulation
+│   ├── SimulationContext/           # Shared simulation state and orchestration
+│   └── PostProcessing/PlotDashboard/ # Real-time plotting dashboard
+├── IO/
+│   ├── OutputWriter/                # Field writer and ASCII .dat output
+│   ├── PathManager/                 # Output path construction
+│   └── Visualization/gnuplot/       # Gnuplot live and line plotting
+├── Utilities/                      # Convergence, time-scale, status, and keyboard helpers
+├── Verification/                   # Analytical reference solution
+├── main/                           # Entry point for each solver executable
+├── Results/                        # Runtime output location
+├── CMakeLists.txt                  # C++20 build and internal library definitions
+└── README.md                       # Project guide
 ```
-
-`PROJECT_STRUCTURE.dat` contains a more detailed source-by-source architecture map and data-flow description.
 
 ## Architecture
 
-CMake builds the code as static libraries grouped by responsibility: `cfd_core`, `cfd_explicit`, `cfd_linear_solvers`, `cfd_implicit`, `cfd_io`, `cfd_utilities`, `cfd_verification`, and `cfd_simulation_setup`. Each executable in `main/` selects a scheme and delegates common setup, field management, convergence tracking, result writing, and plotting to `SimulationContext` and its supporting modules.
+The repository is organized as internal C++ libraries with clear responsibilities:
+
+| Module | Responsibility |
+|---|---|
+| `Core/` | Geometry, mesh, boundaries, and scalar fields |
+| `Discretization/` | FTCS, DuFort–Frankel, Laasonen, and Crank–Nicolson schemes |
+| `LinearSolvers/` | Thomas TDMA algorithm and Gaussian elimination with partial pivoting |
+| `SimulationSetup/` | Parameters, simulation context, and real-time plotting dashboard |
+| `IO/` | Field writer, ASCII `.dat` exporter, and Gnuplot live visualization |
+
+CMake builds the modules as static libraries and links them into the four solver executables. Shared setup, field management, convergence tracking, output, and plotting are coordinated by the simulation context and its supporting modules.
